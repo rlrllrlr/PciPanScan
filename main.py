@@ -30,6 +30,10 @@ cli_parse.add_argument("-hi", dest="highlight", action="store_true",
                        help="highlight newly-censored strings(implies -v)");
 cli_parse.add_argument("-no", dest="no_output_file", action="store_true",
                        help="don't write output to any file");
+cli_parse.add_argument("-li", dest="line_numbering", action="store_true",
+                       help="display line numbers to the left of lines(implies -v)");
+cli_parse.add_argument("-only", dest="positive_only", action="store_true",
+                       help="display only the lines that contain sensitive data (implies -v)")
 parsed = cli_parse.parse_args();
 
 #assign cli parsing to (relatively) local variables
@@ -37,7 +41,9 @@ input_file = parsed.filename;
 output_file = parsed.output_file if parsed.output_file else input_file;
 repl_char = parsed.repl_char if parsed.repl_char else 'X';
 highlight = parsed.highlight;
-verbose = True if highlight else parsed.verbose;
+line_numbering = parsed.line_numbering;
+positive_only = parsed.positive_only
+verbose = True if highlight or line_numbering or positive_only else parsed.verbose;
 no_output_file = parsed.no_output_file;
 
 #read the input file
@@ -65,13 +71,21 @@ if not no_output_file:
   except IOError as e:
     print("Error writing to output file: "+e.strerror);
 
-#verbose, maybe
 if verbose:
-  if highlight:
-    cchilit_repl = lambda mobj: "\033[1;31m"+mobj.group(0)+"\033[0m";
-    new_content = re.sub("xxxx-xxxx-xxxx-xxxx".replace('x', repl_char),
-                         cchilit_repl, new_content);
-    sshilit_repl = lambda mobj: "\033[1;94m"+mobj.group(0)+"\033[0m";
-    new_content = re.sub("xxx-xx-xxxx".replace('x', repl_char),
-                         sshilit_repl, new_content);
-  print(new_content);
+    line_count = 1
+    for line in new_content.split('\n')[:-1]:
+        if (not positive_only) or (positive_only and (ssrepl(None) in line or ccrepl(None) in line)):
+            if highlight:
+                cchilit_repl = lambda mobj: "\033[1;31m"+mobj.group(0)+"\033[0m"
+                line = re.sub("xxxx-xxxx-xxxx-xxxx".replace('x', repl_char),
+                              cchilit_repl, line);
+                sshilit_repl = lambda mobj: "\033[1;94m"+mobj.group(0)+"\033[0m";
+                line = re.sub("xxx-xx-xxxx".replace('x', repl_char),
+                              sshilit_repl, line);
+
+            if line_numbering:
+                print("{}: {}".format(line_count,line))
+            else:
+                print(line)
+
+        line_count += 1
